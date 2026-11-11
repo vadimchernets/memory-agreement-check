@@ -89,7 +89,18 @@ Categories follow the official scorer ([`task_eval/evaluation.py`](https://githu
 
 ## First numbers
 
-_Filled in from [`results/`](results/) after the first run._
+200 LoCoMo questions (40 per category, seed 2026); BM25 memory, top 10 turns; `gpt-6.1-sol` (OpenAI, Codex CLI) and `claude-sonnet-5-5` (Anthropic, Claude CLI) answering separately; Kimi (Moonshot) as the blind judge. Categories 1-4 (160 questions); 95% intervals in brackets. Details: [`results/README.md`](results/README.md).
+
+| Memory held all evidence turns? | Questions | Models agreed | Agreed but wrong | Agreed on a real answer but wrong |
+|---|---|---|---|---|
+| yes | 71 | 64 | **3 (4.7% [1.6, 12.9])** | 2 of 63 (3.2%) |
+| no | 85 | 67 | **50 (74.6% [63.1, 83.5])** | 15 of 32 (46.9% [30.9, 63.6]) |
+
+- 50 of the 54 agreed-but-wrong answers (92.6% [82.4, 97.1]) came with retrieval that missed evidence.
+- The two models' errors were strongly correlated: φ = 0.81 [0.72, 0.88]. Both were wrong on 40% of questions, against 20% expected if their errors were independent. With φ = 0.81 the pair is worth about 1.1 independent checks.
+- Many agreed errors with poor memory are both models honestly saying "Not mentioned". Even when both gave a substantive answer, nearly half of their agreements were wrong when memory was incomplete.
+
+This is one retriever, one model pair and one seed, and it shows an association, not a cause (see [limits](#limits-of-this-first-run)).
 
 ## Limits of this first run
 
