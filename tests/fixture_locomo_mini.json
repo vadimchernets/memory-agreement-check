@@ -1,0 +1,25 @@
+[
+ {"sample_id": "mini-1",
+  "conversation": {
+   "speaker_a": "Ana", "speaker_b": "Ben",
+   "session_1_date_time": "10:00 am on 3 March, 2023",
+   "session_1": [
+     {"speaker": "Ana", "dia_id": "D1:1", "text": "I adopted a grey cat called Pixel yesterday."},
+     {"speaker": "Ben", "dia_id": "D1:2", "text": "Nice! I am training for the Lisbon marathon."},
+     {"speaker": "Ana", "dia_id": "D1:3", "text": "My sister lives in Porto and teaches piano."}
+   ],
+   "session_2_date_time": "6:30 pm on 20 April, 2023",
+   "session_2": [
+     {"speaker": "Ben", "dia_id": "D2:1", "text": "I finished the marathon last Sunday in four hours.", "blip_caption": "a man holding a medal"},
+     {"speaker": "Ana", "dia_id": "D2:2", "text": "Pixel knocked my coffee onto the laptop today."},
+     {"speaker": "Ben", "dia_id": "D2:3", "text": "I am thinking about learning the guitar."}
+   ]},
+  "qa": [
+   {"question": "What is the name of Ana's cat?", "answer": "Pixel", "evidence": ["D1:1"], "category": 4},
+   {"question": "When did Ana adopt her cat?", "answer": "2 March 2023", "evidence": ["D1:1"], "category": 2},
+   {"question": "Which city's marathon did Ben finish?", "answer": "Lisbon", "evidence": ["D1:2", "D2:1"], "category": 1},
+   {"question": "What instrument does Ana's sister teach?", "answer": "piano", "evidence": ["D1:3"], "category": 3},
+   {"question": "What instrument does Ben's sister teach?", "evidence": ["D1:3"], "category": 5, "adversarial_answer": "piano"},
+   {"question": "What did Pixel knock over?", "answer": "coffee", "evidence": ["D2:2; D1:1"], "category": 4}
+  ]}
+]
