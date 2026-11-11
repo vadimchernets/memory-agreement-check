@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this tool, please cite it as below, together with the LoCoMo paper."
+title: "memory-agreement-check: does agreement between two LLMs still mean anything when both read the same retrieved memory?"
+authors:
+  - family-names: Chernets
+    given-names: Vadym
+    orcid: "https://orcid.org/0009-0007-4845-3163"
+version: 0.1.0
+date-released: 2026-11-11
+license: MIT
+repository-code: "https://github.com/vadimchernets/memory-agreement-check"
+references:
+  - type: conference-paper
+    title: "Evaluating Very Long-Term Conversational Memory of LLM Agents"
+    authors:
+      - family-names: Maharana
+        given-names: Adyasha
+      - family-names: Lee
+        given-names: Dong-Ho
+      - family-names: Tulyakov
+        given-names: Sergey
+      - family-names: Bansal
+        given-names: Mohit
+      - family-names: Barbieri
+        given-names: Francesco
+      - family-names: Fang
+        given-names: Yuwei
+    year: 2024
+    conference:
+      name: "ACL 2024"
