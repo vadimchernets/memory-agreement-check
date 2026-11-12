@@ -1,5 +1,9 @@
 # memory-agreement-check
 
+> Finds the cases where two different AIs agree and are both wrong, because both read the same memory. One command, runs on LoCoMo.
+
+![social preview](assets/social-preview.png)
+
 **When two AI models from different companies agree, that is often taken as a sign the answer is right. In an agent with memory, both models usually read the same retrieved memory, so if retrieval missed the fact they can agree on the same wrong answer.**
 
 This tool measures how often that happens, on the [LoCoMo](https://github.com/snap-research/locomo) long-conversation benchmark. For each question it:
