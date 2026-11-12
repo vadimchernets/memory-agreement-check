@@ -219,5 +219,22 @@
  "balanced": true,
  "k": 10,
  "effort": "low",
- "categories": null
+ "categories": null,
+ "cli_versions": {
+  "codex": "codex-cli 0.166.0",
+  "claude": "2.1.322 (Claude Code)",
+  "kimi": "kimi version 2.4.1"
+ },
+ "cli_versions_note": "added after the run from the installed CLIs (same machine, same day)",
+ "resolved_models": {
+  "a": [
+   "gpt-6.1-sol"
+  ],
+  "b": [
+   "claude-sonnet-5-5"
+  ],
+  "judge": [
+   "kimi-code/kimi-for-coding"
+  ]
+ }
 }

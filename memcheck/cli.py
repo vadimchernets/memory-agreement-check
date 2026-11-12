@@ -72,13 +72,13 @@ def cmd_run(a):
     run(chosen, memory, convs, A, B, J, out, a.seed, a.workers,
         {"run_name": name, "memory": mem_desc, "balanced": not a.random, "k": a.k, "effort": a.effort,
          "categories": cats}, pace=a.pace, log=_log_to(out / "progress.log"))
-    s = report.write(out, a.seed)
+    s = report.write(out, a.seed, data)
     print((out / "summary.md").read_text())
     return s
 
 
 def cmd_report(a):
-    report.write(Path(a.dir), a.seed)
+    report.write(Path(a.dir), a.seed, Path(a.data) if a.data else None)
     print((Path(a.dir) / "summary.md").read_text())
 
 
@@ -121,7 +121,7 @@ def main(argv=None):
 
     s = sub.add_parser("report", help="recompute summary.md / summary.json for a run folder")
     s.add_argument("dir")
-    s.add_argument("--seed", type=int, default=2026)
+    s.add_argument("--seed", type=int, default=report.DEFAULT_SEED, help="bootstrap seed")
     s.set_defaults(f=cmd_report)
 
     a = p.parse_args(argv)

@@ -29,6 +29,8 @@ class Scoring(unittest.TestCase):
         self.assertTrue(scoring.rule_same("Not mentioned.", "not mentioned"))
         self.assertFalse(scoring.rule_same("Not mentioned", "piano"))
         self.assertTrue(scoring.rule_same("the piano", "Piano"))
+        self.assertFalse(scoring.is_abstain("When Jolene was 10 (the exact year is not mentioned)"))
+        self.assertTrue(scoring.is_abstain("Not mentioned. The excerpts only talk about John."))
 
 
 class Data(unittest.TestCase):
@@ -82,6 +84,10 @@ class Parsing(unittest.TestCase):
         t = 'thinking...\n• {"answer_1_correct": true, "answer_2_correct": false, "same": false}\nmore'
         self.assertEqual(parse_judge(t), {"answer_1_correct": True, "answer_2_correct": False, "same": False})
         self.assertIsNone(parse_judge("no json here"))
+        # string booleans are read strictly: bool("false") would be True
+        self.assertEqual(parse_judge('{"answer_1_correct": "false", "answer_2_correct": "true", "same": "false"}'),
+                         {"answer_1_correct": False, "answer_2_correct": True, "same": False})
+        self.assertIsNone(parse_judge('{"answer_1_correct": "maybe", "answer_2_correct": true, "same": true}'))
 
     def test_cli_parsers(self):
         cx = CliBackend("codex", None, ".")
@@ -114,10 +120,10 @@ class EndToEnd(unittest.TestCase):
             main(["--data", str(FIX), "run", "--backend", "dry", "--n", "0", "--k", "1", "--out", d, "--name", "t"])
             s = json.loads((Path(d) / "t" / "summary.json").read_text())
             self.assertEqual(s["n_records"], 6)
-            inc = s["retrieval_incomplete_non_adv"]
+            inc = s["judge"]["retrieval_incomplete_non_adv"]
             # two stubs that are right only when memory holds the evidence agree on the same wrong answer otherwise
             self.assertGreater(inc["n_agree_wrong"], 0)
-            self.assertEqual(s["retrieval_full_non_adv"]["n_agree_wrong"], 0)
+            self.assertEqual(s["judge"]["retrieval_full_non_adv"]["n_agree_wrong"], 0)
             # resume: a second call adds nothing
             main(["--data", str(FIX), "run", "--backend", "dry", "--n", "0", "--k", "1", "--out", d, "--name", "t"])
             self.assertEqual(len((Path(d) / "t" / "records.jsonl").read_text().splitlines()), 6)

@@ -46,9 +46,22 @@ def f1_multi(pred: str, gold: str) -> float:
     return sum(max(f1_score(p, g) for p in preds) for g in golds) / len(golds)
 
 
+_ABSTAIN_STRIP = re.compile(
+    r"not mentioned|no information available|not (?:stated|specified|given|available|provided|in the excerpts)|"
+    r"cannot be determined|can't be determined|unknown|the excerpts? (?:do|does) not (?:say|mention|contain|state)|"
+    r"in the (?:excerpts|conversation|memory)|\\b(?:it|this|that|is|was|are|the|a|answer)\\b", re.I)
+
+
 def is_abstain(ans: str) -> bool:
-    a = str(ans).lower()
-    return any(m in a for m in ABSTAIN_MARKERS)
+    """An abstention leads with 'Not mentioned' or says nothing else of substance.
+    'When Jolene was 10 (the exact year is not mentioned)' is NOT an abstention."""
+    a = str(ans).lower().strip()
+    if not any(m in a for m in ABSTAIN_MARKERS):
+        return False
+    if re.match(r"^\W*(not mentioned|no information available)\b", a):   # leads with the abstention
+        return True
+    rest = re.findall(r"[a-z0-9]+", _ABSTAIN_STRIP.sub(" ", a))
+    return len(rest) <= 2
 
 
 def locomo_score(pred: str, gold: str, category: int) -> float:

@@ -29,8 +29,20 @@ def parse_judge(text: str):
             o = json.loads(m.group(0))
         except ValueError:
             continue
-        if all(k in o for k in ("answer_1_correct", "answer_2_correct", "same")):
-            return {k: bool(o[k]) for k in ("answer_1_correct", "answer_2_correct", "same")}
+        keys = ("answer_1_correct", "answer_2_correct", "same")
+        if all(k in o for k in keys):
+            vals = {k: _strict_bool(o[k]) for k in keys}
+            if all(v is not None for v in vals.values()):
+                return vals
+    return None
+
+
+def _strict_bool(v):
+    """Only real JSON booleans or the exact strings true/false count; bool("false") would be True."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.strip().lower() in ("true", "false"):
+        return v.strip().lower() == "true"
     return None
 
 
@@ -70,16 +82,16 @@ def one(q: Question, memory, turns_by_id, a: Backend, b: Backend, judge: Backend
             c1, c2 = parsed["answer_1_correct"], parsed["answer_2_correct"]
             jrec = {"spec": judge.spec, "model": jmodel, "order": order,
                     "a_correct": c1 if order == "ab" else c2, "b_correct": c2 if order == "ab" else c1,
-                    "same": parsed["same"]}
+                    "same": parsed["same"], "raw": raw[:500]}
         else:
             jrec = {"spec": judge.spec, "model": jmodel, "order": order, "failed": True, "raw": raw[:500]}
     if jrec and not jrec.get("failed"):
         ac, bc, same, src = jrec["a_correct"], jrec["b_correct"], jrec["same"], "judge"
     else:
         ac, bc, same, src = rule["a_correct"], rule["b_correct"], rule["same"], "rule"
-    # "agree" = same answer AND the grader treats them alike; a judge saying "same" while marking one
-    # right and one wrong is inconsistent, and we do not count that pair as agreeing.
-    agree = bool(same and ac == bc)
+    # "agree" = the two answers say the same thing (judge's "same", or the F1 rule without a judge).
+    # A judge saying "same" while grading the two differently is counted as agreeing and flagged.
+    agree = bool(same)
     return {
         "qid": q.qid, "category": q.category, "category_name": q.category_name,
         "retrieval": {"source": r.source, "dia_ids": r.dia_ids, "context_chars": len(r.context), **cov},
@@ -101,6 +113,20 @@ def _git_rev() -> str:
         return "unknown"
 
 
+def _cli_versions(bs) -> dict:
+    out = {}
+    for x in bs:
+        tool = getattr(x, "tool", None)
+        if tool and tool not in out:
+            try:
+                from .backends import _bin
+                out[tool] = subprocess.run([_bin(tool), "--version"], capture_output=True, text=True,
+                                           timeout=30).stdout.strip().splitlines()[-1][:80]
+            except Exception as e:  # noqa: BLE001
+                out[tool] = f"unknown ({e})"[:80]
+    return out
+
+
 def run(questions: list[Question], memory, convs, a: Backend, b: Backend, judge: Backend | None,
         out: Path, seed: int, workers: int, config: dict, pace: float = 0.0, log=print) -> Path:
     out.mkdir(parents=True, exist_ok=True)
@@ -116,6 +142,7 @@ def run(questions: list[Question], memory, convs, a: Backend, b: Backend, judge:
             "model_a": a.spec, "model_b": b.spec, "judge": judge.spec if judge else "rule (LoCoMo F1 >= 0.5)",
             "n_questions": len(questions), "seed": seed, "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "qids": [q.qid for q in questions], **config}
+    meta["cli_versions"] = _cli_versions([a, b] + ([judge] if judge else []))
     meta_path = out / "meta.json"
     if not meta_path.exists():
         meta_path.write_text(json.dumps(meta, indent=1))
