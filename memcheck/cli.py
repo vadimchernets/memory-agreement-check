@@ -82,6 +82,47 @@ def cmd_report(a):
     print((Path(a.dir) / "summary.md").read_text())
 
 
+def _unit(lo_open: bool = True, hi_open: bool = True, name: str = "value"):
+    """argparse type: a finite number in (0, 1), [0, 1] etc."""
+    def f(x):
+        try:
+            v = float(x)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"{name} must be a number, got {x!r}")
+        ok = v == v and (v > 0 if lo_open else v >= 0) and (v < 1 if hi_open else v <= 1)
+        if not ok:
+            raise argparse.ArgumentTypeError(f"{name} must be in {'(' if lo_open else '['}0, 1{')' if hi_open else ']'}"
+                                             f", got {x!r}")
+        return v
+    return f
+
+
+def _drops(x):
+    try:
+        v = tuple(float(t) for t in x.split(",") if t.strip())
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--detect takes comma-separated points, e.g. 1,2,3; got {x!r}")
+    if any(not (0 < t <= 100) for t in v):
+        raise argparse.ArgumentTypeError(f"--detect points must be in (0, 100], got {x!r}")
+    return v
+
+
+def cmd_compare(a):
+    from . import compare
+    detect = a.detect
+    try:
+        s, md = compare.run_compare(a.run_a, a.run_b, a.gold, a.match, a.f1_threshold, a.label_a, a.label_b,
+                                    detect, a.alpha, a.power)
+    except (ValueError, OSError) as e:
+        sys.exit(f"compare: {e}")
+    print(md)
+    if a.json:
+        Path(a.json).write_text(json.dumps(s, indent=2, ensure_ascii=False))
+    if a.md:
+        Path(a.md).write_text(md)
+    return s
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="python -m memcheck",
                                 description="Does agreement between two LLMs from different companies still mean "
@@ -123,6 +164,25 @@ def main(argv=None):
     s.add_argument("dir")
     s.add_argument("--seed", type=int, default=report.DEFAULT_SEED, help="bootstrap seed")
     s.set_defaults(f=cmd_report)
+
+    c = sub.add_parser("compare", help="compare two runs on the same questions (two models, or e.g. FP8 vs bf16): "
+                                       "paired 2x2 table, exact McNemar, CI of the difference, identical answers")
+    c.add_argument("run_a", help="JSONL (or JSON array) of run A: qid, answer, optional correct / category")
+    c.add_argument("run_b", help="the same for run B")
+    c.add_argument("--gold", help="JSONL with qid, answer (string or list of acceptable answers), optional category;"
+                                  " without it, each run row needs a 'correct' field")
+    c.add_argument("--match", choices=["exact", "contains", "f1"], default="exact",
+                   help="how answers are graded against --gold (default exact, after normalisation)")
+    c.add_argument("--f1-threshold", type=_unit(False, False, "--f1-threshold"), default=0.5, help="token F1 needed with --match f1 (default 0.5)")
+    c.add_argument("--label-a", help="name of run A in the report (default: file name)")
+    c.add_argument("--label-b", help="name of run B in the report (default: file name)")
+    c.add_argument("--detect", type=_drops, default=(1.0, 2.0, 3.0),
+                   help="accuracy drops, in points, to size a test for (default 1,2,3)")
+    c.add_argument("--alpha", type=_unit(name="--alpha"), default=0.05)
+    c.add_argument("--power", type=_unit(name="--power"), default=0.8)
+    c.add_argument("--json", help="also write the full result as JSON here")
+    c.add_argument("--md", help="also write the report as Markdown here")
+    c.set_defaults(f=cmd_compare)
 
     a = p.parse_args(argv)
     return a.f(a)

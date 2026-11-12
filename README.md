@@ -15,6 +15,8 @@ This tool measures how often that happens, on the [LoCoMo](https://github.com/sn
 
 Results of the first run are under [`results/`](results/). Headline numbers are [below](#first-numbers).
 
+It also has a general [`compare`](#comparing-two-runs-eg-fp8-vs-bf16) mode for two runs on the same questions, such as an FP8 and a bf16 version of one model: paired 2x2 table, exact McNemar test, an interval for the accuracy difference, and identical answers.
+
 ## Install
 
 Python 3.10+, no required dependencies. Optional: `pip install nltk` (the official LoCoMo scorer stems words with NLTK's Porter stemmer; without it F1 is computed without stemming and the run records `stemmer: none`).
@@ -76,6 +78,62 @@ python -m memcheck run --backend cli --contexts flyhash-k32.jsonl --memory-name 
 ```
 
 Running the same questions with several code sizes, or against `--method dense`, shows whether shorter codes lead to more cases where both models agree on a wrong answer.
+
+## Comparing two runs (e.g. FP8 vs bf16)
+
+`compare` takes the answers of two runs on the same questions (two models, or two versions of one model such as an FP8-quantized and a bf16 checkpoint) and does the paired analysis. It works on any question set, not only LoCoMo, and needs no dependencies.
+
+```bash
+python -m memcheck compare bf16.jsonl fp8.jsonl --label-a bf16 --label-b FP8
+# or grade the answers here against a gold file:
+python -m memcheck compare bf16.jsonl fp8.jsonl --gold gold.jsonl --match exact
+```
+
+**File format.** JSONL (one object per line) or a JSON array. Questions are matched by `qid` (or `id`, `question_id`); questions missing from either run are left out and counted.
+
+```json
+{"qid": "q001", "answer": "Paris", "correct": true, "category": "factual"}
+```
+
+- `answer` (or `prediction`, `response`, `output`): optional, but needed for the identical-answer measures and for `--gold`.
+- `correct`: `true`/`false` or `1`/`0`, from your own grader. Used when `--gold` is not given.
+- `category`: optional; gives a per-category table. It can sit in the gold file or in the run files.
+- Gold file: `{"qid": "q001", "answer": "Paris"}`; `answer` may be a list of acceptable answers. `--match exact` (default) compares after the usual normalisation (case, punctuation, articles, spaces); `--match contains` accepts the gold answer anywhere in the answer as whole words; `--match f1` uses token F1 >= `--f1-threshold` (default 0.5).
+
+**What it reports.**
+
+| Measure | Meaning |
+|---|---|
+| accuracy A, B | with Wilson 95% intervals |
+| paired 2x2 table | both right / only A right (b) / only B right (c) / both wrong |
+| exact McNemar | two-sided binomial test on the discordant pairs: p = min(1, 2·P(X <= min(b, c))), X ~ Bin(b + c, 1/2) |
+| difference A − B | in accuracy points, with the Tango score 95% interval for paired proportions (recommended by Fagerland, Lydersen & Laake, 2014; checked against R `contingencytables`) |
+| identical answers | word-for-word (ignoring leading and trailing spaces), and after normalisation |
+| same answer and both wrong | among pairs that give the same answer by token overlap (F1 between them >= 0.5, or both abstain), the share where both are wrong, with a Wilson interval; also for word-for-word identical pairs, and how many of the questions both got wrong share the same wrong answer. Token overlap is a cheap proxy for meaning: two answers sharing half their words can still differ |
+| questions needed | how many paired questions the exact McNemar test needs to detect a 1, 2 or 3-point drop of B with 80% power (`--detect`, `--alpha`, `--power`): in the best case where every flip goes one way, at the flip rate observed, and at the upper end of that rate's 95% Wilson interval. Exact power, summed over the binomial distribution of flips, no normal approximation. These are planning estimates under an assumed flip rate, not guarantees |
+| by category | per category: accuracies, the 2x2 counts, exact McNemar p and the Tango interval for the difference (not corrected for multiple comparisons) |
+| flipped questions | the qids of the b and c questions, to read them |
+
+`--json out.json` saves everything; `--md out.md` saves the report. Missing answers with `--gold`, duplicate qids and categories that differ between files are errors rather than silent guesses.
+
+**Assumption.** The test, the interval and the sample sizes treat questions as independent draws. If many questions share a source (one document, one template, one conversation), the effective sample is smaller and the intervals are too narrow; then compare at the level of the source, or resample whole sources.
+
+**Example.** [`examples/compare/`](examples/compare/) holds a small synthetic pair of runs (150 made-up questions, three categories, no real model):
+
+```bash
+python -m memcheck compare examples/compare/run_bf16.jsonl examples/compare/run_fp8.jsonl \
+  --gold examples/compare/gold.jsonl --match contains --label-a bf16 --label-b FP8
+```
+
+```
+5 flips out of 150 is consistent with no real difference (exact McNemar p = 0.375), though not evidence that
+there is none; you need N ≈ 790 questions to detect a 1-point drop (80% power, exact McNemar, α = 0.05) if every
+flip goes the same way (the fewest possible), and about 6,110 if 7.6% of answers flip (the upper end of the 95%
+interval for the flip rate seen here).
+Accuracy difference bf16 − FP8: +2.0 points, 95% interval [-1.3, +6.1]. ...
+```
+
+**Reading a small number of flips.** With 120 questions and one flip (b = 1, c = 0), p = 1.0 and the difference is +0.8 points with a 95% interval of about −2.3 to +4.6 points. That is consistent with no real difference, but it does not show equivalence: drops of a few points are still inside the interval. With fewer than 6 flips the exact test cannot reach p < 0.05 whatever their direction, so for a quantization check the useful numbers are b, c and the interval, and the number of questions needed to see the drop you care about.
 
 ## What is measured
 
